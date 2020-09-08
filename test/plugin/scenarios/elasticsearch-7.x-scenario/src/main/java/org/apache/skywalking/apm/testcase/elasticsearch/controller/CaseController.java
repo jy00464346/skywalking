@@ -18,8 +18,6 @@
 
 package org.apache.skywalking.apm.testcase.elasticsearch.controller;
 
-import static java.util.Collections.singletonMap;
-
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
@@ -27,6 +25,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
+import org.elasticsearch.action.admin.cluster.settings.ClusterGetSettingsRequest;
+import org.elasticsearch.action.admin.cluster.settings.ClusterGetSettingsResponse;
+import org.elasticsearch.action.admin.cluster.settings.ClusterUpdateSettingsRequest;
+import org.elasticsearch.action.admin.cluster.settings.ClusterUpdateSettingsResponse;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.elasticsearch.action.admin.indices.refresh.RefreshRequest;
 import org.elasticsearch.action.get.GetRequest;
@@ -44,32 +46,33 @@ import org.elasticsearch.client.indices.CreateIndexRequest;
 import org.elasticsearch.client.indices.CreateIndexResponse;
 import org.elasticsearch.cluster.health.ClusterHealthStatus;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.unit.ByteSizeUnit;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentFactory;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.indices.recovery.RecoverySettings;
 import org.elasticsearch.script.Script;
 import org.elasticsearch.script.ScriptType;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-/**
- * @author aderm
- */
+import static java.util.Collections.singletonMap;
+
 @RestController
 @RequestMapping("/case")
 public class CaseController {
 
-    private static Logger logger = LogManager.getLogger(CaseController.class);
+    private static final Logger LOGGER = LogManager.getLogger(CaseController.class);
 
     @Autowired
     private RestHighLevelClient client;
 
     @GetMapping("/healthCheck")
-    public String healthcheck() throws Exception {
+    public String healthCheck() throws Exception {
         ClusterHealthRequest request = new ClusterHealthRequest();
         request.timeout(TimeValue.timeValueSeconds(10));
         request.waitForStatus(ClusterHealthStatus.GREEN);
@@ -77,7 +80,7 @@ public class CaseController {
         ClusterHealthResponse response = client.cluster().health(request, RequestOptions.DEFAULT);
         if (response.isTimedOut()) {
             String message = "elastic search node start fail!";
-            logger.error(message);
+            LOGGER.error(message);
             throw new RuntimeException(message);
         }
         return "Success";
@@ -87,21 +90,34 @@ public class CaseController {
     public String elasticsearch() throws Exception {
         String indexName = UUID.randomUUID().toString();
         try {
-            //create
-            createIndex(client, indexName);
+            // health
+            health();
+            
+            // get settings
+            getSettings();
+            
+            // put settings
+            putSettings();
+            
+            // create
+            createIndex(indexName);
+            
             // index
-            index(client, indexName);
+            index(indexName);
 
             client.indices().refresh(new RefreshRequest(indexName), RequestOptions.DEFAULT);
 
-            //get
-            get(client, indexName);
+            // get
+            get(indexName);
+            
             // search
-            search(client, indexName);
+            search(indexName);
+            
             // update
-            update(client, indexName);
+            update(indexName);
+            
             // delete
-            delete(client, indexName);
+            delete(indexName);
         } finally {
             if (null != client) {
                 client.close();
@@ -110,7 +126,43 @@ public class CaseController {
         return "Success";
     }
 
-    private void createIndex(RestHighLevelClient client, String indexName) throws IOException {
+    private void health() throws IOException {
+        ClusterHealthRequest request = new ClusterHealthRequest();
+        ClusterHealthResponse response = client.cluster().health(request, RequestOptions.DEFAULT);
+        if (response.isTimedOut()) {
+            String message = "elastic search health fail!";
+            LOGGER.error(message);
+            throw new RuntimeException(message);
+        }
+    }
+
+    private void putSettings() throws IOException {
+        ClusterUpdateSettingsRequest request = new ClusterUpdateSettingsRequest();
+        String transientSettingKey =
+            RecoverySettings.INDICES_RECOVERY_MAX_BYTES_PER_SEC_SETTING.getKey();
+        int transientSettingValue = 10;
+        Settings transientSettings = Settings.builder()
+                .put(transientSettingKey, transientSettingValue, ByteSizeUnit.BYTES)
+                .build();
+        request.transientSettings(transientSettings);
+        ClusterUpdateSettingsResponse response = client.cluster().putSettings(request, RequestOptions.DEFAULT);
+        if (response == null) {
+            String message = "elasticsearch put settings fail.";
+            LOGGER.error(message);
+            throw new RuntimeException(message);
+        }
+    }
+
+    private void getSettings() throws IOException {
+        ClusterGetSettingsResponse response = client.cluster().getSettings(new ClusterGetSettingsRequest(), RequestOptions.DEFAULT);
+        if (response == null) {
+            String message = "elasticsearch get settings fail.";
+            LOGGER.error(message);
+            throw new RuntimeException(message);
+        }
+    }
+
+    private void createIndex(String indexName) throws IOException {
         CreateIndexRequest request = new CreateIndexRequest(indexName);
 
         XContentBuilder builder = XContentFactory.jsonBuilder();
@@ -134,20 +186,17 @@ public class CaseController {
         builder.endObject();
         request.mapping(builder);
 
-        request.settings(Settings.builder()
-            .put("index.number_of_shards", 1)
-            .put("index.number_of_replicas", 0)
-        );
+        request.settings(Settings.builder().put("index.number_of_shards", 1).put("index.number_of_replicas", 0));
 
         CreateIndexResponse createIndexResponse = client.indices().create(request, RequestOptions.DEFAULT);
         if (createIndexResponse.isAcknowledged() == false) {
             String message = "elasticsearch create index fail.";
-            logger.error(message);
+            LOGGER.error(message);
             throw new RuntimeException(message);
         }
     }
 
-    private void index(RestHighLevelClient client, String indexName) throws IOException {
+    private void index(String indexName) throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder();
         builder.startObject();
         {
@@ -160,23 +209,23 @@ public class CaseController {
         IndexResponse indexResponse = client.index(indexRequest, RequestOptions.DEFAULT);
         if (indexResponse.status().getStatus() >= 400) {
             String message = "elasticsearch index data fail.";
-            logger.error(message);
+            LOGGER.error(message);
             throw new RuntimeException(message);
         }
     }
 
-    private void get(RestHighLevelClient client, String indexName) throws IOException {
+    private void get(String indexName) throws IOException {
         GetRequest getRequest = new GetRequest(indexName, "1");
         GetResponse getResponse = client.get(getRequest, RequestOptions.DEFAULT);
 
         if (!getResponse.isExists()) {
             String message = "elasticsearch get data fail.";
-            logger.error(message);
+            LOGGER.error(message);
             throw new RuntimeException(message);
         }
     }
 
-    private void update(RestHighLevelClient client, String indexName) throws IOException {
+    private void update(String indexName) throws IOException {
         UpdateRequest request = new UpdateRequest(indexName, "1");
         Map<String, Object> parameters = singletonMap("title", "c++ programing.");
         Script inline = new Script(ScriptType.INLINE, "painless", "ctx._source.title = params.title", parameters);
@@ -185,22 +234,22 @@ public class CaseController {
         UpdateResponse updateResponse = client.update(request, RequestOptions.DEFAULT);
         if (updateResponse.getVersion() != 2) {
             String message = "elasticsearch update data fail.";
-            logger.error(message);
+            LOGGER.error(message);
             throw new RuntimeException(message);
         }
     }
 
-    private void delete(RestHighLevelClient client, String indexName) throws IOException {
+    private void delete(String indexName) throws IOException {
         DeleteIndexRequest request = new DeleteIndexRequest(indexName);
         AcknowledgedResponse deleteIndexResponse = client.indices().delete(request, RequestOptions.DEFAULT);
         if (!deleteIndexResponse.isAcknowledged()) {
             String message = "elasticsearch delete index fail.";
-            logger.error(message);
+            LOGGER.error(message);
             throw new RuntimeException(message);
         }
     }
 
-    private void search(RestHighLevelClient client, String indexName) throws IOException {
+    private void search(String indexName) throws IOException {
         SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
         sourceBuilder.query(QueryBuilders.termQuery("author", "Marker"));
         sourceBuilder.from(0);
@@ -214,10 +263,9 @@ public class CaseController {
         int length = searchResponse.getHits().getHits().length;
         if (!(length > 0)) {
             String message = "elasticsearch search data fail.";
-            logger.error(message);
+            LOGGER.error(message);
             throw new RuntimeException(message);
         }
     }
 }
-
 

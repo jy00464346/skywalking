@@ -15,8 +15,10 @@
  * limitations under the License.
  *
  */
+
 package test.org.apache.skywalking.apm.testcase.resttemplate;
 
+import java.io.IOException;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -29,14 +31,12 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.client.RestTemplate;
 import test.org.apache.skywalking.apm.testcase.entity.User;
 
-import java.io.IOException;
-
 @Controller
 public class RestTemplateController {
 
     private static final String SUCCESS = "Success";
 
-    private Logger logger = LogManager.getLogger(RestTemplateController.class);
+    private static final Logger LOGGER = LogManager.getLogger(RestTemplateController.class);
 
     private static final String url = "http://localhost:8080/spring-4.1.x-scenario";
 
@@ -45,7 +45,7 @@ public class RestTemplateController {
     public String restTemplate() throws IOException {
         Request request = new Request.Builder().url(url + "/case/spring3/").build();
         Response response = new OkHttpClient().newCall(request).execute();
-        logger.info(response.toString());
+        LOGGER.info(response.toString());
 
         // Create user
         HttpEntity<User> userEntity = new HttpEntity<>(new User(1, "a"));
@@ -64,12 +64,10 @@ public class RestTemplateController {
         return SUCCESS;
     }
 
-
     @RequestMapping("/healthCheck")
     @ResponseBody
     public String healthCheck() {
         return SUCCESS;
     }
-
 
 }

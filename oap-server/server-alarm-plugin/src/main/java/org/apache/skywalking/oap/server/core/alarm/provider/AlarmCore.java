@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.skywalking.oap.server.core.alarm.AlarmCallback;
 import org.apache.skywalking.oap.server.core.alarm.AlarmMessage;
 import org.joda.time.LocalDateTime;
@@ -33,11 +32,9 @@ import org.slf4j.LoggerFactory;
 /**
  * Alarm core includes metrics values in certain time windows based on alarm settings. By using its internal timer
  * trigger and the alarm rules to decides whether send the alarm to database and webhook(s)
- *
- * @author wusheng
  */
 public class AlarmCore {
-    private static final Logger logger = LoggerFactory.getLogger(AlarmCore.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AlarmCore.class);
 
     private LocalDateTime lastExecuteTime;
     private AlarmRulesWatcher alarmRulesWatcher;
@@ -80,7 +77,7 @@ public class AlarmCore {
                     allCallbacks.forEach(callback -> callback.doAlarm(alarmMessageList));
                 }
             } catch (Exception e) {
-                logger.error(e.getMessage(), e);
+                LOGGER.error(e.getMessage(), e);
             }
         }, 10, 10, TimeUnit.SECONDS);
     }

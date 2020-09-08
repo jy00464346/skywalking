@@ -18,6 +18,7 @@
 
 package test.org.apache.skywalking.apm.testcase.resttemplate;
 
+import java.io.IOException;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -30,23 +31,21 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 import test.org.apache.skywalking.apm.testcase.entity.User;
 
-import java.io.IOException;
-
 @RestController
 public class RestTemplateController {
 
     private static final String SUCCESS = "Success";
 
-    private Logger logger = LogManager.getLogger(RestTemplateController.class);
+    private static final Logger LOGGER = LogManager.getLogger(RestTemplateController.class);
 
     private static final String url = "http://localhost:8080/spring-4.3.x-scenario";
 
     @RequestMapping("/case/resttemplate")
     @ResponseBody
     public String restTemplate() throws IOException {
-        Request request = new Request.Builder().url(url + "/case/spring3/").build();
+        Request request = new Request.Builder().header("mock_header", "mock_value").url(url + "/case/spring3/").build();
         Response response = new OkHttpClient().newCall(request).execute();
-        logger.info(response.toString());
+        LOGGER.info(response.toString());
 
         // Create user
         HttpEntity<User> userEntity = new HttpEntity<>(new User(1, "a"));
@@ -64,17 +63,23 @@ public class RestTemplateController {
 
         Request inheritRequest = new Request.Builder().url(url + "/inherit/child/test").build();
         response = new OkHttpClient().newCall(inheritRequest).execute();
-        logger.info(response.toString());
+        LOGGER.info(response.toString());
+
+        Request implRequestMappingRequest = new Request.Builder().url(url + "/impl/requestmapping").build();
+        response = new OkHttpClient().newCall(implRequestMappingRequest).execute();
+        LOGGER.info(response.toString());
+
+        Request implRestMappingRequest = new Request.Builder().url(url + "/impl/restmapping").build();
+        response = new OkHttpClient().newCall(implRestMappingRequest).execute();
+        LOGGER.info(response.toString());
 
         return SUCCESS;
     }
-
 
     @RequestMapping("/healthCheck")
     @ResponseBody
     public String healthCheck() {
         return SUCCESS;
     }
-
 
 }

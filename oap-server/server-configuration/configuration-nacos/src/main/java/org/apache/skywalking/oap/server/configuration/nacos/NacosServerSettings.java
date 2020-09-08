@@ -23,14 +23,10 @@ import lombok.Setter;
 import lombok.ToString;
 import org.apache.skywalking.oap.server.library.module.ModuleConfig;
 
-/**
- * @author kezhenxu94
- */
 @Getter
 @Setter
 @ToString
 public class NacosServerSettings extends ModuleConfig {
-    private String clusterName = "default";
     private String namespace = "";
     private String serverAddr;
     private int port = 8848;

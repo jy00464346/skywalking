@@ -19,22 +19,22 @@
 package org.apache.skywalking.apm.testcase.grpc.provider.service;
 
 import io.grpc.stub.StreamObserver;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.skywalking.apm.testcase.grpc.proto.GreeterGrpc;
 import org.apache.skywalking.apm.testcase.grpc.proto.HelloReply;
 import org.apache.skywalking.apm.testcase.grpc.proto.HelloRequest;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 
 public class GreeterServiceImpl extends GreeterGrpc.GreeterImplBase {
 
-    private Logger logger = LogManager.getLogger(GreeterServiceImpl.class);
+    private static final Logger LOGGER = LogManager.getLogger(GreeterServiceImpl.class);
 
     @Override
     public StreamObserver<HelloRequest> sayHello(final StreamObserver<HelloReply> responseObserver) {
         StreamObserver<HelloRequest> requestStreamObserver = new StreamObserver<HelloRequest>() {
+
             public void onNext(HelloRequest request) {
-                logger.info("Receive an message from client. Message: {}", request.getName());
+                LOGGER.info("Receive an message from client. Message: {}", request.getName());
                 responseObserver.onNext(HelloReply.newBuilder().setMessage("Hi," + request.getName()).build());
             }
 
@@ -43,7 +43,7 @@ public class GreeterServiceImpl extends GreeterGrpc.GreeterImplBase {
             }
 
             public void onCompleted() {
-                logger.info("End the stream.");
+                LOGGER.info("End the stream.");
                 responseObserver.onCompleted();
             }
         };

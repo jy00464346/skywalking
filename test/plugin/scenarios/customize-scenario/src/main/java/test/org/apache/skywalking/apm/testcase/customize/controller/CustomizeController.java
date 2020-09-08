@@ -18,6 +18,8 @@
 
 package test.org.apache.skywalking.apm.testcase.customize.controller;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,15 +30,11 @@ import test.org.apache.skywalking.apm.testcase.customize.model.Model1;
 import test.org.apache.skywalking.apm.testcase.customize.service.TestService1;
 import test.org.apache.skywalking.apm.testcase.customize.service.TestService2;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-
-
 @RestController
 @RequestMapping("/case")
 public class CustomizeController {
 
-    private Logger logger = LoggerFactory.getLogger(CustomizeController.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(CustomizeController.class);
 
     private static final String SUCCESS = "Success";
 
@@ -50,26 +48,37 @@ public class CustomizeController {
             put("k1", "v1");
         }}, new ArrayList() {{
             add("a");
-        }}, new Object[] {'1', 2, "3"});
+        }}, new Object[] {
+            '1',
+            2,
+            "3"
+        });
 
         TestService1.staticMethod();
         TestService1.staticMethod("id", 123, new HashMap() {{
             put("k1", "v1");
         }}, new ArrayList() {{
             add("a");
-        }}, new Object[] {'1', 2, "3"});
+        }}, new Object[] {
+            '1',
+            2,
+            "3"
+        });
         testService1.method();
         testService1.method("str0", 123);
         testService1.method(m0, "def_str_0", 123);
 
         TestService2.staticMethod("s", 123);
-        testService2.method(new Object[] {'1', 2, "3"});
+        testService2.method(new Object[] {
+            '1',
+            2,
+            "3"
+        });
         testService2.method(new ArrayList() {{
             add("a2");
         }}, 123);
 
-
-        logger.info(SUCCESS);
+        LOGGER.info(SUCCESS);
         return SUCCESS;
     }
 
